@@ -9,10 +9,6 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from dotenv import load_dotenv
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 import os
-import toml
-
-config = toml.load('config.toml')  # Path to your TOML file
-OPENAI_API_KEY = config['api_keys']['OPENAI_API_KEY']
 
 
 # Load environment variables
