@@ -1,4 +1,4 @@
-
+ 
 # Document Chat & Meeting Notes Summarizer
 
 This application provides two main functionalities:

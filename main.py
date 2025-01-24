@@ -7,6 +7,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
 from langchain.embeddings.openai import OpenAIEmbeddings
 from dotenv import load_dotenv
+from transformers import T5Tokenizer, T5ForConditionalGeneration
 import os
 
 # Load environment variables
@@ -45,6 +46,24 @@ def process_document(file_path):
     retriever = vector_store.as_retriever(search_kwargs={"k": 2})
 
     return retriever
+
+# Cache the model initialization for summarization
+@st.cache_resource
+def load_summarizer():
+    tokenizer = T5Tokenizer.from_pretrained("t5-small")
+    model = T5ForConditionalGeneration.from_pretrained("t5-small")
+    return tokenizer, model
+
+# Preprocess input for summarization
+def preprocess_input(text, tokenizer):
+    return tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=512, truncation=True)
+
+# Generate summary using the summarizer model
+def generate_summary(text, tokenizer, model):
+    inputs = preprocess_input(text, tokenizer)
+    summary_ids = model.generate(inputs, max_length=200, min_length=50, length_penalty=2.0, num_beams=4, early_stopping=True)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return summary.split(". ")
 
 # Define the main functionality for Chat with Document
 def Chat_with_document_using_RAG():
@@ -89,26 +108,7 @@ def Chat_with_document_using_RAG():
 
 # Define the Meeting Notes Summarizer functionality
 def Meeting_Notes_Summarizer_using_LLMS():
-    from transformers import T5Tokenizer, T5ForConditionalGeneration
-
-    # Cache model initialization
-    @st.cache_resource
-    def load_summarizer():
-        tokenizer = T5Tokenizer.from_pretrained("t5-small")
-        model = T5ForConditionalGeneration.from_pretrained("t5-small")
-        return tokenizer, model
-
     tokenizer, model = load_summarizer()
-
-    def preprocess_input(text):
-        inputs = tokenizer.encode("summarize: " + text, return_tensors="pt", max_length=512, truncation=True)
-        return inputs
-
-    def generate_summary(text):
-        inputs = preprocess_input(text)
-        summary_ids = model.generate(inputs, max_length=200, min_length=50, length_penalty=2.0, num_beams=4, early_stopping=True)
-        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-        return summary.split(". ")
 
     st.title("Meeting Notes Summarizer")
     st.write("This web app summarizes your meeting notes into concise bullet points.")
@@ -119,7 +119,7 @@ def Meeting_Notes_Summarizer_using_LLMS():
             st.write("### Original Meeting Notes:")
             st.write(user_input)
 
-            summary_points = generate_summary(user_input)
+            summary_points = generate_summary(user_input, tokenizer, model)
             st.write("### Summarized Meeting Notes:")
             for point in summary_points:
                 st.write(f"• {point}")
